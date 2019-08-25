@@ -85,7 +85,7 @@ class App < Sinatra::Base
 
   post '/login' do
     name = params[:name]
-    statement = db.prepare('SELECT * FROM user WHERE name = ?')
+    statement = db.prepare('SELECT * FROM user WHERE name = ? limit 1')
     row = statement.execute(name).first
     if row.nil? || row['password'] != Digest::SHA1.hexdigest(row['salt'] + params[:password])
       return 403
@@ -124,7 +124,7 @@ class App < Sinatra::Base
     rows.each do |row|
       r = {}
       r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
+      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ? limit 1')
       r['user'] = statement.execute(row['user_id']).first
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
@@ -158,17 +158,17 @@ class App < Sinatra::Base
 
     res = []
     channel_ids.each do |channel_id|
-      statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ?')
+      statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ? limit 1')
       row = statement.execute(user_id, channel_id).first
       statement.close
       r = {}
       r['channel_id'] = channel_id
       r['unread'] = if row.nil?
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
+        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? limit 1')
         statement.execute(channel_id).first['cnt']
       else
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id')
-        statement.execute(channel_id, row['message_id']).first['cnt']
+        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE ? < id AND channel_id = ? limit 1')
+        statement.execute(row['message_id'], channel_id).first['cnt']
       end
       statement.close
       res << r
@@ -202,7 +202,7 @@ class App < Sinatra::Base
     rows.each do |row|
       r = {}
       r['id'] = row['id']
-      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ?')
+      statement = db.prepare('SELECT name, display_name, avatar_icon FROM user WHERE id = ? limit 1')
       r['user'] = statement.execute(row['user_id']).first
       r['date'] = row['created_at'].strftime("%Y/%m/%d %H:%M:%S")
       r['content'] = row['content']
@@ -211,7 +211,7 @@ class App < Sinatra::Base
     end
     @messages.reverse!
 
-    statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?')
+    statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? limit 1')
     cnt = statement.execute(@channel_id).first['cnt'].to_f
     statement.close
     @max_page = cnt == 0 ? 1 :(cnt / n).ceil
@@ -230,7 +230,7 @@ class App < Sinatra::Base
     @channels, = get_channel_list_info
 
     user_name = params[:user_name]
-    statement = db.prepare('SELECT * FROM user WHERE name = ?')
+    statement = db.prepare('SELECT * FROM user WHERE name = ? limit 1')
     @user = statement.execute(user_name).first
     statement.close
 
@@ -322,7 +322,7 @@ class App < Sinatra::Base
 
   get '/icons/:file_name' do
     file_name = params[:file_name]
-    statement = db.prepare('SELECT * FROM image WHERE name = ?')
+    statement = db.prepare('SELECT * FROM image WHERE name = ? limit 1')
     row = statement.execute(file_name).first
     statement.close
     ext = file_name.include?('.') ? File.extname(file_name) : ''
@@ -374,7 +374,7 @@ class App < Sinatra::Base
     pass_digest = Digest::SHA1.hexdigest(salt + password)
     statement = db.prepare('INSERT INTO user (name, salt, password, display_name, avatar_icon, created_at) VALUES (?, ?, ?, ?, ?, NOW())')
     statement.execute(user, salt, pass_digest, user, 'default.png')
-    row = db.query('SELECT LAST_INSERT_ID() AS last_insert_id').first
+    row = db.query('SELECT LAST_INSERT_ID() AS last_insert_id limit 1').first
     statement.close
     row['last_insert_id']
   end
