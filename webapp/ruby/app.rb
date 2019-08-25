@@ -154,25 +154,38 @@ class App < Sinatra::Base
 
     sleep 1.0
 
-    rows = db.query('SELECT id FROM channel').to_a
-    channel_ids = rows.map { |row| row['id'] }
+    message_count = db.query('select id as channel_id, m_cnt as unread from channel c
+    left outer join (
+    select channel_id, count(*) as m_cnt from message group by channel_id
+    ) cnt on cnt.channel_id = c.id;').to_a
+
+
+    s = db.prepare('select h.channel_id,
+    sum(
+    case
+    when m.id <= h.message_id then 1
+    else 0
+    end
+    ) as haveread_cnt
+    from message m
+    join haveread h on h.channel_id = m.channel_id
+    where h.user_id = ?
+    group by h.channel_id
+    ;')
+    haveread_count = s.execute(user_id).to_a
+
+    haveread_data = {}
+    haveread_count.each do |v|
+      haveread_data[v['channel_id']] = v['haveread_cnt']
+    end
 
     res = []
-    channel_ids.each do |channel_id|
-      statement = db.prepare('SELECT * FROM haveread WHERE user_id = ? AND channel_id = ? limit 1')
-      row = statement.execute(user_id, channel_id).first
-      statement.close
-      r = {}
-      r['channel_id'] = channel_id
-      r['unread'] = if row.nil?
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? limit 1')
-        statement.execute(channel_id).first['cnt']
-      else
-        statement = db.prepare('SELECT COUNT(*) as cnt FROM message WHERE ? < id AND channel_id = ? limit 1')
-        statement.execute(row['message_id'], channel_id).first['cnt']
-      end
-      statement.close
-      res << r
+    message_count.each do |w|
+      c_id = w['channel_id']
+      res << {
+        'channel_id' => c_id,
+        'unread' => w['unread'].to_i - haveread_data[c_id].to_i
+      }
     end
 
     content_type :json
