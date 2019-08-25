@@ -14,5 +14,5 @@ RUN bundle install
 
 EXPOSE 5000
 
-ENTRYPOINT ["bundle", "exec", "puma", "-p", "5000"]
-CMD ["-t", "10"]
+# ENTRYPOINT ["bundle", "exec", "puma", "-p", "5000"]
+# CMD ["-t", "10"]
