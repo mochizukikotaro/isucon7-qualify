@@ -1,5 +1,7 @@
 FROM ruby:2.4.2
 
+RUN apt-get update && apt-get install htop
+
 ARG GIT_URL=https://github.com/isucon/isucon7-qualify.git
 
 # RUN git clone $GIT_URL /home/isucon/isubata
